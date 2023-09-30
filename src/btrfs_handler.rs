@@ -1,91 +1,7 @@
-use std::io::{BufRead, BufReader, Error, ErrorKind};
+use std::path::Path;
 use std::process;
-use std::process::{Command, Stdio};
 
-fn run_command_and_stream_out(
-    cmd_to_run: std::string::String,
-    args_for_cmd: &[&str],
-) -> Result<(), Error> {
-    let stdout = Command::new(cmd_to_run)
-        .args(args_for_cmd)
-        .stdout(Stdio::piped())
-        .spawn()?
-        .stdout
-        .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture standard output."))?;
-
-    let reader = BufReader::new(stdout);
-
-    reader
-        .lines()
-        .filter_map(|line| line.ok())
-        .filter(|line| line.find("usb").is_some())
-        .for_each(|line| println!("{}", line));
-
-    Ok(())
-}
-
-
-fn run_command_and_stream_err(
-    cmd_to_run: std::string::String,
-    args_for_cmd: &[&str],
-) -> Result<(), Error> {
-    let stdout = Command::new(cmd_to_run)
-        .args(args_for_cmd)
-        .env("GIT_EXTERNAL_DIFF", "difft")
-        .stderr(Stdio::piped())
-        .spawn()?
-        .stderr
-        .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture standard output."))?;
-
-    let reader = BufReader::new(stdout);
-
-    reader
-        .lines()
-        .filter_map(|line| line.ok())
-        .filter(|line| line.find("usb").is_some())
-        .for_each(|line| println!("{}", line));
-
-    Ok(())
-}
-
-fn run_command(
-    cmd_to_run: std::string::String,
-    args_for_cmd: Option<&[&str]>,
-) -> std::result::Result<std::process::Output, std::io::Error> {
-    let mut cmd = Command::new(cmd_to_run);
-    if let Some(a) = args_for_cmd {
-        cmd.args(a);
-    }
-
-    cmd.output()
-}
-
-fn get_command_output(
-    cmd_to_run: std::string::String,
-    args_for_cmd: Option<&[&str]>,
-) -> std::string::String {
-    let output = run_command(cmd_to_run, args_for_cmd);
-
-    match output {
-        Ok(o) => {
-            let mut result = String::from("");
-            if &o.stdout.len() > &0 {
-                result = result
-                    + &String::from_utf8_lossy(&o.stdout).to_owned().to_string()
-                    + &String::from("\n");
-            }
-
-            if &o.stderr.len() > &0 {
-                result = result
-                    + &String::from_utf8_lossy(&o.stderr).to_owned().to_string()
-                    + &String::from("\n");
-            }
-
-            result
-        }
-        Err(_) => "fail".to_string(),
-    }
-}
+use crate::utils::*;
 
 pub fn is_root_user() -> bool {
     let uid = get_command_output(String::from("id"), Some(&*vec!["-u"]));
@@ -94,6 +10,27 @@ pub fn is_root_user() -> bool {
     } else {
         false
     };
+
+    is_root
+}
+
+pub fn get_root_subvolume_name() -> Option<String> {
+    let subvols = get_command_output(String::from("btrfs"), Some(&*vec!["subvolume", "list", "/"]));
+
+    let subvol_output_lines = subvols.split("\n");
+
+    // root = Fedora
+    // @ = Opensuse, Mint
+    let probable_root_names = vec!["root", "@"];
+
+    for line in subvol_output_lines {
+        let subvol_path = line.split(" ").last().unwrap();
+        if probable_root_names.contains(&subvol_path) {
+            return Some(subvol_path.to_string());
+        }
+    }
+
+    None
 }
 
 pub fn create_snapshots_dir() {
@@ -103,12 +40,17 @@ pub fn create_snapshots_dir() {
         process::exit(1)
     }
 
-    let snapshots_dir = std::path::Path::new("/.snapshots/");
+    let snapshots_dir = Path::new("/.snapshots/");
 
-    if !snapshots_dir.exists() {
-        println!("Creating Snapshots Directory: {:?}", snapshots_dir);
-        run_command(String::from("mkdir"), Some(&*vec![snapshots_dir.to_str().unwrap()]));
-    }
+    make_dir_if_not_exists(snapshots_dir);
 }
 
+pub fn create_root_snapshot(snapshot_target_dir: &Path) {
+    let success = run_command(String::from("btrfs"), Some(&*vec!["subvolume", "snapshot", "/", snapshot_target_dir.as_os_str()]);
+
+    match success {
+        Ok(Output) => {println!("Snapshot created at {:?}", snapshot_target_dir.as_os_str())},
+        Err(error) => {eprintln!("Error creating snapshot: {:?}", error)}
+    }
+}
 
