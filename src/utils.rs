@@ -93,7 +93,7 @@ pub fn get_command_output(
 pub fn make_dir_if_not_exists(path: &Path) {
     if !path.exists() {
         println!("Creating Snapshots Directory: {:?}", path);
-        fs::create_dir_all(path).expect(&*format!("Could not create {:?} directory!", path.to()));
+        fs::create_dir_all(path).expect(&*format!("Could not create {:?} directory!", path.to_str()));
     }
 }
 
@@ -107,9 +107,12 @@ pub fn try_detect_distro() -> String {
     let mut os_name = "unknown";
     for line in os_release_content.split("\n") {
         if line.starts_with("NAME=\"") {
-            os_name = line.chars().skip(6).next_back().as_str();
+            let mut line_chars = line.chars();
+            line_chars.next_back();
+
+            os_name = &line_chars.as_str()[6..];
         }
     }
 
-    os_name.to_string().to_lowercase().replace("linux", "")
+    os_name.to_lowercase().split(" ").next().unwrap().to_string()
 }

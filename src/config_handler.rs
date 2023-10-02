@@ -1,8 +1,14 @@
 use std::fs;
-use std::fs::File;
+use std::fs::{File, read_to_string};
 use std::path::Path;
 
 use crate::utils::*;
+
+pub struct ConfigOpts {
+    package_manager: String,
+    update_command: String,
+    install_command: String,
+}
 
 fn populate_config_file_with_defaults() {
     let mut package_manager = "";
@@ -29,7 +35,7 @@ fn populate_config_file_with_defaults() {
             update_command = "update";
             install_command = "install";
         }
-        "arch" | "endeavour" => {
+        "arch" | "endeavouros" => {
             println!("Detected {}, assuming your package manager is pacman", distro);
             package_manager = "pacman";
             update_command = "-Syu";
@@ -46,7 +52,7 @@ fn populate_config_file_with_defaults() {
         }
     }
 
-    if package_manager.len() {
+    if package_manager.len() > 0 {
         let config_contents = format!("PACKAGE_MANAGER {}\nUPDATE_COMMAND {}\nINSTALL_COMMAND {}", package_manager, update_command, install_command);
         fs::write("/etc/atomic-update.conf", config_contents).expect("Unable to write to /etc/atomic-update.conf");
     }
@@ -61,3 +67,35 @@ pub fn create_config_file() {
     }
 }
 
+pub fn read_config_file() -> Result<ConfigOpts, std::io::Error> {
+    let config_file_path = Path::new("/etc/atomic-update.conf");
+
+    if !config_file_path.exists() {
+        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "Could not fine atomic update config file!");
+        return Err(err);
+    }
+
+    let mut update_command = "update";
+    let mut package_manager = "dnf";
+    let mut install_command = "install";
+
+    // must be a more elegant way to do this
+    let file_contents = read_to_string(config_file_path).unwrap();
+    for line in file_contents.lines() {
+        if line.starts_with("UPDATE_COMMAND") {
+            update_command = line.split(" ").last().unwrap();
+        } else if line.starts_with("PACKAGE_MANAGER") {
+            package_manager = line.split(" ").last().unwrap();
+        } else if line.starts_with("INSTALL_COMMAND") {
+            install_command = line.split(" ").last().unwrap();
+        }
+    }
+
+    let co = ConfigOpts {
+        update_command: update_command.to_string(),
+        package_manager: package_manager.to_string(),
+        install_command: install_command.to_string(),
+    };
+
+    Ok(co)
+}

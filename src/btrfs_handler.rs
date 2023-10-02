@@ -46,11 +46,16 @@ pub fn create_snapshots_dir() {
 }
 
 pub fn create_root_snapshot(snapshot_target_dir: &Path) {
-    let success = run_command(String::from("btrfs"), Some(&*vec!["subvolume", "snapshot", "/", snapshot_target_dir.as_os_str()]);
+    let success = run_command(String::from("btrfs"), Some(&*vec!["subvolume", "snapshot", "/", snapshot_target_dir.to_str().unwrap()]));
 
     match success {
-        Ok(Output) => {println!("Snapshot created at {:?}", snapshot_target_dir.as_os_str())},
-        Err(error) => {eprintln!("Error creating snapshot: {:?}", error)}
+        Ok(output) => { println!("Snapshot created at {:?}", snapshot_target_dir.as_os_str()) }
+        Err(error) => { eprintln!("Error creating snapshot: {:?}", error) }
     }
 }
+
+pub fn chroot_into_snapshot(snapshot_target_dir: &Path) {
+    // TODO
+}
+
 
