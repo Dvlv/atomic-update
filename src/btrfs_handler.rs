@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process;
+use std::os::unix::fs::chroot;
 
 use crate::utils::*;
 
@@ -45,17 +46,34 @@ pub fn create_snapshots_dir() {
     make_dir_if_not_exists(snapshots_dir);
 }
 
-pub fn create_root_snapshot(snapshot_target_dir: &Path) {
+pub fn create_root_snapshot(snapshot_target_dir: &Path) -> std::io::Result<()>{
     let success = run_command(String::from("btrfs"), Some(&*vec!["subvolume", "snapshot", "/", snapshot_target_dir.to_str().unwrap()]));
 
     match success {
-        Ok(output) => { println!("Snapshot created at {:?}", snapshot_target_dir.as_os_str()) }
-        Err(error) => { eprintln!("Error creating snapshot: {:?}", error) }
+        Ok(output) => {
+            println!("Snapshot created at {:?}", snapshot_target_dir.as_os_str());
+            Ok(())
+
+        }
+        Err(error) => {
+            eprintln!("Error creating snapshot: {:?}", error);
+            Err(error)
+        }
     }
 }
 
-pub fn chroot_into_snapshot(snapshot_target_dir: &Path) {
-    // TODO
+pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: String, args: Option<&[&str]>) -> std::io::Result<()>{
+    chroot(snapshot_target_dir)?;
+    std::env::set_current_dir("/")?;  //TODO confirm
+    println!("Executing: {} {:?}", command, args);
+    run_command(command, args)?;
+
+    Ok(())
 }
 
 
+
+pub fn get_next_snapshot_path() -> String {
+    return String::from("/.snapshots/1");
+
+}

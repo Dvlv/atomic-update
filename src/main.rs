@@ -1,6 +1,9 @@
 use std::{env, process};
+use std::path::Path;
+use std::process::exit;
 
 use btrfs_handler::*;
+use crate::config_handler::read_config_file;
 
 use crate::utils::try_detect_distro;
 
@@ -32,6 +35,26 @@ fn init() {
     //create_snapshots_dir();
     //create_config_file();
     println!("{}", try_detect_distro());
+}
+
+fn update() {
+    let next_snapshot_location = get_next_snapshot_path();
+    let next_snapshot_path = Path::new(next_snapshot_location.as_str());
+    create_root_snapshot(Path::new("/.snapshots/path1")).expect("Could not create snapshot");
+    // TODO config
+    let mut package_manager = String::from("");
+    let mut update_command = String::from("");
+    if let Ok(opts) = read_config_file() {
+        package_manager = opts.package_manager;
+        update_command = opts.update_command;
+    }
+
+    if package_manager.is_empty() || update_command.is_empty() {
+        eprintln!("Config could not be read, please edit /etc/atomic-update.conf!");
+        exit(1);
+    }
+
+    run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(vec![update_command.as_str()].as_slice()));
 }
 
 fn main() {

@@ -5,9 +5,9 @@ use std::path::Path;
 use crate::utils::*;
 
 pub struct ConfigOpts {
-    package_manager: String,
-    update_command: String,
-    install_command: String,
+    pub(crate) package_manager: String,
+    pub(crate) update_command: String,
+    pub(crate) install_command: String,
 }
 
 fn populate_config_file_with_defaults() {
@@ -71,7 +71,7 @@ pub fn read_config_file() -> Result<ConfigOpts, std::io::Error> {
     let config_file_path = Path::new("/etc/atomic-update.conf");
 
     if !config_file_path.exists() {
-        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "Could not fine atomic update config file!");
+        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "Could not find atomic update config file!");
         return Err(err);
     }
 
