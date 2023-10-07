@@ -3,8 +3,8 @@ use std::path::Path;
 use std::process::exit;
 
 use btrfs_handler::*;
-use crate::config_handler::read_config_file;
 
+use crate::config_handler::read_config_file;
 use crate::utils::try_detect_distro;
 
 mod btrfs_handler;
@@ -34,13 +34,14 @@ fn init() {
 
     //create_snapshots_dir();
     //create_config_file();
+    println!("{:?}", get_next_snapshot_path());
     println!("{}", try_detect_distro());
 }
 
 fn update() {
-    let next_snapshot_location = get_next_snapshot_path();
+    let next_snapshot_location = get_next_snapshot_path().expect("Could not parse snapshot dir");
     let next_snapshot_path = Path::new(next_snapshot_location.as_str());
-    create_root_snapshot(Path::new("/.snapshots/path1")).expect("Could not create snapshot");
+    create_root_snapshot(next_snapshot_path).expect("Could not create snapshot");
     // TODO config
     let mut package_manager = String::from("");
     let mut update_command = String::from("");
@@ -55,6 +56,36 @@ fn update() {
     }
 
     run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(vec![update_command.as_str()].as_slice()));
+}
+
+fn exec_cmd(cmd_args: &mut Vec<String>) {
+    let next_snapshot_location = get_next_snapshot_path().expect("Could not parse snapshot dir");
+    let next_snapshot_path = Path::new(next_snapshot_location.as_str());
+    create_root_snapshot(next_snapshot_path).expect("Could not create snapshot");
+
+    let cmd_to_run = cmd_args[0].clone();
+
+    if cmd_args.len() == 1 {
+        match run_command_in_snapshot_chroot(next_snapshot_path, cmd_to_run.clone(), None) {
+            Ok(()) => {
+                println!("Worked!");
+            }
+            Err(e) => {
+                println!("nope");
+            }
+        }
+    } else {
+        let args_to_run: Vec<&str> = cmd_args[1..].iter().map(|s| s.as_str()).collect();
+
+        match run_command_in_snapshot_chroot(next_snapshot_path, cmd_to_run.clone(), Some(&args_to_run)) {
+            Ok(()) => {
+                println!("Worked!");
+            }
+            Err(e) => {
+                println!("nope, {:?}", e);
+            }
+        }
+    }
 }
 
 fn main() {
@@ -72,7 +103,12 @@ fn main() {
             println!("init")
         }
         "exec" => {
-            println!("init")
+            if args.len() < 3 {
+                println!("Not enough args passed to exec! \n");
+                return usage();
+            }
+            let mut cmd_args = args[2..args.len()].to_vec();
+            exec_cmd(&mut cmd_args);
         }
         "install" => {
             println!("init")
