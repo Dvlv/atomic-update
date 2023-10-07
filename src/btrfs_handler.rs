@@ -78,6 +78,33 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
     Ok(())
 }
 
+pub fn swap_snapshot_to_root(snapshot_path: &Path) {
+    let root_subvol_name = get_root_subvolume_name().expect("Could not determine root subvolume name - expecting 'root' or '@'");
+    let root_partition_device = get_root_partition_device();
+
+    let mount_command = format!("mount -t btrfs -o subvolid=5 {} /mnt", root_partition_device);
+    let mount_command_parts = mount_command.split(" ").collect::<Vec<_>>();
+
+    let move_old_cmd = format!("mv /mnt/{} /mnt/{}", root_subvol_name, "rollback");
+    let move_old_cmd_parts = move_old_cmd.split(" ").collect::<Vec<_>>();
+
+    let move_new_cmd = format!("mv /mnt/rollback{} /mnt/{}", snapshot_path.to_str().unwrap(), root_subvol_name);
+    let move_new_cmd_parts = move_new_cmd.split(" ").collect::<Vec<_>>();
+
+    let make_old_backup_cmd = format!("mv /mnt/rollback /mnt/{}/.au-snapshots/rollback", root_subvol_name);
+    let make_old_backup_cmd_parts = make_old_backup_cmd.split(" ").collect::<Vec<_>>();
+
+
+    println!("Swapping {} to new root, moving current root to /.au-snapshots/rollback", snapshot_path.to_str().unwrap());
+
+    run_command(mount_command_parts[0].to_string(), Some(mount_command_parts[1..].iter().as_slice()));
+    run_command(move_old_cmd_parts[0].to_string(), Some(move_old_cmd_parts[1..].iter().as_slice()));
+    run_command(move_new_cmd_parts[0].to_string(), Some(move_new_cmd_parts[1..].iter().as_slice()));
+    run_command(make_old_backup_cmd_parts[0].to_string(), Some(make_old_backup_cmd_parts[1..].iter().as_slice()));
+
+    run_command(String::from("umount"), Some(vec!["/mnt"].as_slice()));
+}
+
 
 pub fn get_next_snapshot_path() -> Result<String, std::io::Error> {
     let snapshots_path = Path::new("/.au-snapshots");

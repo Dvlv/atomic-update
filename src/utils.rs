@@ -60,6 +60,8 @@ pub fn run_command(
         cmd.args(a);
     }
 
+    println!("{:?}", cmd);
+
     cmd.output()
 }
 
@@ -115,4 +117,8 @@ pub fn try_detect_distro() -> String {
     }
 
     os_name.to_lowercase().split(" ").next().unwrap().to_string()
+}
+
+pub fn get_root_partition_device() -> String {
+    return String::from("/dev/vda3");
 }

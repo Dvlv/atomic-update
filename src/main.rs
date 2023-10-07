@@ -69,9 +69,10 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
         match run_command_in_snapshot_chroot(next_snapshot_path, cmd_to_run.clone(), None) {
             Ok(()) => {
                 println!("Worked!");
+                swap_snapshot_to_root(next_snapshot_path);
             }
             Err(e) => {
-                println!("nope");
+                println!("nope, {:?}", e);
             }
         }
     } else {
@@ -80,6 +81,7 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
         match run_command_in_snapshot_chroot(next_snapshot_path, cmd_to_run.clone(), Some(&args_to_run)) {
             Ok(()) => {
                 println!("Worked!");
+                swap_snapshot_to_root(next_snapshot_path);
             }
             Err(e) => {
                 println!("nope, {:?}", e);
