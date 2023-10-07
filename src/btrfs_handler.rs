@@ -67,13 +67,13 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
     run_command(String::from("rm"), Some(vec![resolv_loc.as_str()].as_slice()));
     run_command(String::from("cp"), Some(vec!["/etc/resolv.conf", resolv_loc.as_str()].as_slice()));
 
-    let mut chroot_plus = vec![snapshot_target_dir.to_str().unwrap(), "-c", command.as_str()];
+    let mut chroot_plus_command = vec![snapshot_target_dir.to_str().unwrap(), command.as_str()];
     if let Some(a) = args {
         for s in a.iter() {
-            chroot_plus.push(*s);
+            chroot_plus_command.push(*s);
         }
     };
-    run_command(String::from("chroot"), Some(chroot_plus.as_slice()));
+    run_command(String::from("chroot"), Some(chroot_plus_command.as_slice()));
 
     Ok(())
 }
