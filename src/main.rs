@@ -13,10 +13,11 @@ mod utils;
 
 fn usage() {
     println!("Usage:");
-    println!("au init - Initialise a system with atomic-update");
-    println!("au update - Update your system in a new snapshot");
-    println!("au exec - Run a command in a new snapshot");
+    println!("au init - Initialise a system with atomic-update.");
+    println!("au update - Update your system in a new snapshot.");
+    println!("au exec [command arg1 arg2] - Run a command in a new snapshot. e.g. atomic-update exec dnf install sshfs -y");
     println!("au install - Install a package into a new snapshot");
+    println!("au rollback - Undo last operation.");
 }
 
 fn init() {
@@ -90,6 +91,10 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
     }
 }
 
+fn rollback() {
+    println!("Not implemented yet");
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -114,6 +119,9 @@ fn main() {
         }
         "install" => {
             println!("init")
+        }
+        "rollback" => {
+            return rollback();
         }
         _ => {
             return usage();
