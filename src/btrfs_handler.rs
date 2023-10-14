@@ -66,8 +66,8 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
     // Chroots dont have /etc/resolv.conf, so network doesnt work
     // copy from host into snapshot
     let resolv_loc = format!("{}/etc/resolv.conf", snapshot_target_dir.to_str().unwrap());
-    run_command(String::from("rm"), Some(vec![resolv_loc.as_str()].as_slice()));
-    run_command(String::from("cp"), Some(vec!["/etc/resolv.conf", resolv_loc.as_str()].as_slice()));
+    run_command_and_stream_err(String::from("rm"), vec![resolv_loc.as_str()].as_slice());
+    run_command_and_stream_err(String::from("cp"), vec!["/etc/resolv.conf", resolv_loc.as_str()].as_slice());
 
     let mut chroot_plus_command = vec![snapshot_target_dir.to_str().unwrap(), command.as_str()];
     if let Some(a) = args {
@@ -75,7 +75,7 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
             chroot_plus_command.push(*s);
         }
     };
-    run_command(String::from("chroot"), Some(chroot_plus_command.as_slice()));
+    run_command_and_stream_err(String::from("chroot"), chroot_plus_command.as_slice());
 
     Ok(())
 }

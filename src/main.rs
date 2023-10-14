@@ -1,4 +1,5 @@
 use std::{env, io, process};
+use std::io::Write;
 use std::path::Path;
 use std::process::exit;
 
@@ -26,7 +27,10 @@ fn init() {
         process::exit(1)
     }
 
-    println!("atomic-update is alpha software and is not yet suitable for important systems. If you do not wish to risk this, please enter Ctrl+C now.\n\nI acknowledge that using atomic-update could possibly corrupt my system, and use it at my own risk.\n Please enter [y/yes]");
+    println!("NOTE: atomic-update is alpha software and is not yet suitable for important systems. If you do not wish to risk this, please enter Ctrl+C now.");
+    print!("I acknowledge that using atomic-update could possibly corrupt my system, and use it at my own risk.\nPlease enter [y/yes]: ");
+    io::stdout().flush().unwrap();
+
     let mut yes_input = String::new();
     while true {
         match io::stdin().read_line(&mut yes_input) {
@@ -51,20 +55,31 @@ fn update() {
     let next_snapshot_location = get_next_snapshot_path().expect("Could not parse snapshot dir");
     let next_snapshot_path = Path::new(next_snapshot_location.as_str());
     create_root_snapshot(next_snapshot_path).expect("Could not create snapshot");
-    // TODO config
+
     let mut package_manager = String::from("");
     let mut update_command = String::from("");
+    let mut yes_flag = String::from("");
+
     if let Ok(opts) = read_config_file() {
         package_manager = opts.package_manager;
         update_command = opts.update_command;
+        yes_flag = opts.yes_flag;
     }
 
-    if package_manager.is_empty() || update_command.is_empty() {
+    if package_manager.is_empty() || update_command.is_empty() || yes_flag.is_empty() {
         eprintln!("Config could not be read, please edit /etc/atomic-update.conf!");
         exit(1);
     }
 
-    run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(vec![update_command.as_str()].as_slice()));
+    match run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(vec![update_command.as_str(), yes_flag.as_str()].as_slice())) {
+        Ok(()) => {
+            println!("Success!");
+            swap_snapshot_to_root(next_snapshot_path);
+        }
+        Err(e) => {
+            println!("Failed: {:?}", e);
+        }
+    }
 }
 
 fn exec_cmd(cmd_args: &mut Vec<String>) {
@@ -119,7 +134,7 @@ fn main() {
             init()
         }
         "update" => {
-            println!("init")
+            update()
         }
         "exec" => {
             if args.len() < 3 {
