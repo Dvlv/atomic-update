@@ -1,6 +1,6 @@
+use std::fs;
 use std::path::Path;
 use std::process;
-use std::fs;
 use std::process::exit;
 
 use crate::utils::*;
@@ -118,7 +118,6 @@ pub fn swap_snapshot_to_root(snapshot_path: &Path) {
     let was_unmounted = run_command(String::from("umount"), Some(vec!["/mnt"].as_slice()));
     if let Err(e) = was_unmounted {
         eprintln!("Failed unmounting /mnt, please do this manually");
-
     }
 }
 
@@ -144,10 +143,12 @@ pub fn get_next_snapshot_path() -> Result<String, std::io::Error> {
         let entry_str = entry.to_str().unwrap();
         let entry_folder = entry_str.split("/").last().unwrap();
         if let Ok(num) = entry_folder.parse::<i32>() {
-            return Ok(String::from(format!("/.au-snapshots/{}", num + 1)));
+            let next_dir = format!("/.au-snapshots/{}", num + 1);
+            if !Path::new(&next_dir).exists() {
+                return Ok(next_dir);
+            }
         }
     }
 
-    let er = std::io::Error::new(std::io::ErrorKind::Other, "Could not parse the au-snapshots directory");
-    Err(er)
+    return Ok(String::from("/.au-snapshots/1"));
 }

@@ -1,11 +1,11 @@
-use std::{env, process};
+use std::{env, io, process};
 use std::path::Path;
 use std::process::exit;
 
 use btrfs_handler::*;
 
-use crate::config_handler::read_config_file;
-use crate::utils::{get_root_partition_device, run_command_and_stream_err, try_detect_distro};
+use crate::config_handler::{create_config_file, read_config_file};
+use crate::utils::get_root_partition_device;
 
 mod btrfs_handler;
 mod config_handler;
@@ -25,18 +25,26 @@ fn init() {
         eprintln!("init must be run as root!");
         process::exit(1)
     }
-    // let root_subvol = get_root_subvolume_name();
-    // if let Some(rs) = root_subvol {
-    //     println!("{}", rs);
-    // } else {
-    //     eprintln!("Could not locate a root subvolume, please set manually in the config!");
-    //     process::exit(1)
-    // }
 
-    //create_snapshots_dir();
-    //create_config_file();
-    println!("{:?}", get_next_snapshot_path());
-    println!("{}", try_detect_distro());
+    println!("atomic-update is alpha software and is not yet suitable for important systems. If you do not wish to risk this, please enter Ctrl+C now.\n\nI acknowledge that using atomic-update could possibly corrupt my system, and use it at my own risk.\n Please enter [y/yes]");
+    let mut yes_input = String::new();
+    while true {
+        match io::stdin().read_line(&mut yes_input) {
+            Ok(_n) => {
+                yes_input = yes_input.trim().to_string();
+                if yes_input.to_lowercase() == "y" || yes_input.to_lowercase() == "yes" {
+                    break;
+                } else {
+                    println!("Please enter 'y' or 'yes', not {}", yes_input);
+                    yes_input = String::from("");
+                }
+            }
+            Err(_error) => eprintln!("An unexpected error occurred"),
+        }
+    }
+    create_snapshots_dir();
+
+    create_config_file();
 }
 
 fn update() {
