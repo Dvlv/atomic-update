@@ -83,6 +83,10 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
 pub fn swap_snapshot_to_root(snapshot_path: &Path) {
     let root_subvol_name = get_root_subvolume_name().expect("Could not determine root subvolume name - expecting 'root' or '@'");
     let root_partition_device = get_root_partition_device();
+    if root_partition_device.as_str() == "" {
+        eprintln!("Failed to detect root partition device, please set it manually in /etc/atomic-update.conf");
+        exit(1);
+    }
 
     let root_subvol_path = format!("/mnt/{}", root_subvol_name);
     let root_subvol_path = Path::new(root_subvol_path.as_str());

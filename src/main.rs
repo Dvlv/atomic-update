@@ -5,7 +5,7 @@ use std::process::exit;
 use btrfs_handler::*;
 
 use crate::config_handler::read_config_file;
-use crate::utils::try_detect_distro;
+use crate::utils::{get_root_partition_device, run_command_and_stream_err, try_detect_distro};
 
 mod btrfs_handler;
 mod config_handler;
@@ -95,6 +95,10 @@ fn rollback() {
     println!("Not implemented yet");
 }
 
+fn deb() {
+    println!("{}", get_root_partition_device());
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -122,6 +126,9 @@ fn main() {
         }
         "rollback" => {
             return rollback();
+        }
+        "deb" => {
+            return deb();
         }
         _ => {
             return usage();

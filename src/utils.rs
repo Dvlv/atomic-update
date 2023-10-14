@@ -60,9 +60,8 @@ pub fn run_command(
         cmd.args(a);
     }
 
-    println!("{:?}", cmd);
-
     cmd.output()
+
 }
 
 pub fn get_command_output(
@@ -120,5 +119,34 @@ pub fn try_detect_distro() -> String {
 }
 
 pub fn get_root_partition_device() -> String {
-    return String::from("/dev/vda3");
+    //df --output=source,fstype,target
+
+    let df_args = vec!["--output=source,fstype,target"];
+
+    // TODO use Errors not magic strings!
+    let df_out = get_command_output(String::from("df"), Some(df_args.as_slice()));
+    if df_out == "fail" {
+        return String::from("");
+    }
+
+    for line in df_out.split("\n") {
+        let line_lower = line.to_ascii_lowercase();
+        let df_out_parts = line_lower.split(" ").filter(|p| !p.is_empty()).collect::<Vec<_>>();
+        if df_out_parts.len() < 3 {
+            continue;
+        }
+        if df_out_parts[0] == "filesystem" {
+            // heading
+            continue;
+        }
+
+        let ftype = df_out_parts[1];
+        let mounted = df_out_parts[2];
+
+        if ftype == "btrfs" && mounted == "/" {
+            return String::from(df_out_parts[0]);
+        }
+    }
+
+    return String::from("");
 }
