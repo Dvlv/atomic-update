@@ -115,7 +115,7 @@ pub fn try_detect_distro() -> String {
         }
     }
 
-    os_name.to_lowercase().split(" ").next().unwrap().to_string()
+    os_name.to_lowercase().replace("linux", "").trim().split(" ").next().unwrap().to_string()
 }
 
 pub fn get_root_partition_device() -> String {
