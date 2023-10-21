@@ -112,12 +112,66 @@ pub fn swap_snapshot_to_root(snapshot_path: &Path) {
     }
 
     fs::rename(root_subvol_path, rollback_subvol_path).expect("Failed to move subvolume at step 1");  // mv /mnt/root /mnt/rollback
-    fs::rename(new_path_to_new_root, root_subvol_path).expect("Filed to move subvolume at step 2");  // mv /mnt/rollback/.au-snapshots/1 /mnt/root
+    fs::rename(new_path_to_new_root, root_subvol_path).expect("Failed to move subvolume at step 2");  // mv /mnt/rollback/.au-snapshots/1 /mnt/root
     fs::rename(rollback_subvol_path, new_rollback_path).expect("Failed to move subvolume at step 3");  // mv /mnt/rollback /mnt/root/.au-snapshots/rollback
 
     let was_unmounted = run_command(String::from("umount"), Some(vec!["/mnt"].as_slice()));
     if let Err(e) = was_unmounted {
         eprintln!("Failed unmounting /mnt, please do this manually");
+    }
+}
+
+pub fn swap_rollback_to_root() {
+    let root_subvol_name = get_root_subvolume_name().expect("Could not determine root subvolume name - expecting 'root' or '@'");
+    let root_partition_device = get_root_partition_device();
+    if root_partition_device.as_str() == "" {
+        eprintln!("Failed to detect root partition device, please set it manually in /etc/atomic-update.conf");
+        exit(1);
+    }
+
+    let root_subvol_path = format!("/mnt/{}", root_subvol_name);
+    let root_subvol_path = Path::new(root_subvol_path.as_str());
+
+    let rollback_subvol_path = format!("/mnt/{}/.au-snapshots/rollback", root_subvol_name);
+    let rollback_subvol_path = Path::new(rollback_subvol_path.as_str());
+
+    let new_root_temp_subvol_path = Path::new("/mnt/new-root");
+
+    let new_root_temp_subvol_rollback_path = format!("/mnt/new-root/.au-snapshots/rollback");
+    let new_root_temp_subvol_rollback_path = Path::new(new_root_temp_subvol_rollback_path.as_str());
+
+    println!("Mounting {} on /mnt", root_partition_device);
+    let mount_command = format!("mount -t btrfs -o subvolid=5 {} /mnt", root_partition_device);
+    let mount_command_parts = mount_command.split(" ").collect::<Vec<_>>();
+    let was_mounted = run_command(mount_command_parts[0].to_string(), Some(mount_command_parts[1..].iter().as_slice()));
+
+    if let Err(e) = was_mounted {
+        eprintln!("Failed mounting {} to /mnt", root_partition_device);
+        exit(1);
+    }
+
+    if !root_subvol_path.exists() || !rollback_subvol_path.exists() {
+        eprintln!("Could not find the structure expected in /mnt, aborting");
+        exit(1);
+    }
+
+    println!("Swapping rollback to new root, moving current root to /.au-snapshots/rollback");
+
+    fs::rename(rollback_subvol_path, new_root_temp_subvol_path).expect("Failed to move subvolume at step 1");  // mv /mnt/root/.au-snapshots/rollback /mnt/new-root
+
+    if new_root_temp_subvol_rollback_path.exists() {
+        println!("Removing {:?}", new_root_temp_subvol_rollback_path.to_str());
+        if let Err(e) = fs::remove_dir_all(new_root_temp_subvol_rollback_path.to_str().unwrap()) {
+            eprintln!("Error clearing old rollback: {:?}", e);
+        }
+    }
+
+    fs::rename(root_subvol_path, new_root_temp_subvol_rollback_path).expect("Failed to move subvolume at step 2");  // mv /mnt/root /mnt/new-root/.au-snapshots/rollback
+    fs::rename(new_root_temp_subvol_path, root_subvol_path).expect("Failed to move subvolume at step 3");  // mv /mnt/new-root /mnt/root
+
+    let was_unmounted = run_command(String::from("umount"), Some(vec!["/mnt"].as_slice()));
+    if let Err(e) = was_unmounted {
+        eprintln!("Failed unmounting /mnt, please do this manually with 'sudo umount /mnt'");
     }
 }
 

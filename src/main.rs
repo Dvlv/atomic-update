@@ -106,6 +106,7 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
             Ok(()) => {
                 println!("Worked!");
                 swap_snapshot_to_root(next_snapshot_path);
+                println!("Success, changes will take effect at next reboot!")
             }
             Err(e) => {
                 println!("nope, {:?}", e);
@@ -115,7 +116,9 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
 }
 
 fn rollback() {
-    println!("Not implemented yet");
+    println!("Swapping rollback and {}", get_root_subvolume_name().unwrap());
+    swap_rollback_to_root();
+    println!("Success, changes will take effect at next reboot!")
 }
 
 fn deb() {
