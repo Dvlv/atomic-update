@@ -82,6 +82,45 @@ fn update() {
     }
 }
 
+fn install(cmd_args: &mut Vec<String>) {
+    let next_snapshot_location = get_next_snapshot_path().expect("Could not parse snapshot dir");
+    let next_snapshot_path = Path::new(next_snapshot_location.as_str());
+    create_root_snapshot(next_snapshot_path).expect("Could not create snapshot");
+
+    let mut package_manager = String::from("");
+    let mut install_command = String::from("");
+    let mut yes_flag = String::from("");
+
+    if let Ok(opts) = read_config_file() {
+        package_manager = opts.package_manager;
+        install_command = opts.install_command;
+        yes_flag = opts.yes_flag;
+    }
+
+    if package_manager.is_empty() || install_command.is_empty() || yes_flag.is_empty() {
+        eprintln!("Config could not be read, please edit /etc/atomic-update.conf!");
+        exit(1);
+    }
+
+    let mut pkgs_to_install: Vec<&str> = cmd_args.iter().map(|s| s.as_str()).collect();
+
+    let mut install_cmd = vec![install_command.as_str()];
+    install_cmd.append(&mut pkgs_to_install);
+    install_cmd.push(yes_flag.as_str());
+
+    println!("{:?}", install_cmd);
+
+    match run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(install_cmd.as_slice())) {
+        Ok(()) => {
+            println!("Success!");
+            swap_snapshot_to_root(next_snapshot_path);
+        }
+        Err(e) => {
+            println!("Failed: {:?}", e);
+        }
+    }
+}
+
 fn exec_cmd(cmd_args: &mut Vec<String>) {
     let next_snapshot_location = get_next_snapshot_path().expect("Could not parse snapshot dir");
     let next_snapshot_path = Path::new(next_snapshot_location.as_str());
@@ -148,7 +187,12 @@ fn main() {
             exec_cmd(&mut cmd_args);
         }
         "install" => {
-            println!("init")
+            if args.len() < 3 {
+                println!("Not enough args passed to install! \n");
+                return usage();
+            }
+            let mut cmd_args = args[2..args.len()].to_vec();
+            return install(&mut cmd_args);
         }
         "rollback" => {
             return rollback();
