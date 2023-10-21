@@ -17,7 +17,7 @@ fn usage() {
     println!("au init - Initialise a system with atomic-update.");
     println!("au update - Update your system in a new snapshot.");
     println!("au exec [command arg1 arg2] - Run a command in a new snapshot. e.g. atomic-update exec dnf install sshfs -y");
-    println!("au install - Install a package into a new snapshot");
+    println!("au install [pkg1 pkg2] - Install a package into a new snapshot");
     println!("au rollback - Undo last operation.");
 }
 
