@@ -86,6 +86,7 @@ The project is currently a Rust program with no external dependencies. This mean
 
 ## TODOs
 - [ ] Swap any magic strings for errors
+- [ ] Allow Stacking
 - [ ] Make use of config file's detections of root subvol / device
 - [ ] Address all compiler warnings of unused Results / Options
 - [ ] Better cleanup if a snapshot-swap step fails - try and manually undo any file moves
