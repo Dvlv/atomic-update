@@ -1,5 +1,5 @@
 use std::fs;
-use std::fs::{File, OpenOptions, read_to_string};
+use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
@@ -31,7 +31,10 @@ fn populate_config_file_with_defaults() {
             yes_flag = "-y";
         }
         "suse" | "opensuse" => {
-            println!("Detected {}, assuming your package manager is zypper", distro);
+            println!(
+                "Detected {}, assuming your package manager is zypper",
+                distro
+            );
             package_manager = "zypper";
             update_command = "update";
             install_command = "install";
@@ -45,7 +48,10 @@ fn populate_config_file_with_defaults() {
             yes_flag = "-y";
         }
         "arch" | "endeavouros" => {
-            println!("Detected {}, assuming your package manager is pacman", distro);
+            println!(
+                "Detected {}, assuming your package manager is pacman",
+                distro
+            );
             package_manager = "pacman";
             update_command = "-Syu";
             install_command = "-S";
@@ -66,20 +72,32 @@ fn populate_config_file_with_defaults() {
     let root_subvol = get_root_subvolume_name();
     let root_partition = get_root_partition_device();
 
-    if package_manager.len() > 0 {
-        let config_contents = format!("PACKAGE_MANAGER {}\nUPDATE_COMMAND {}\nINSTALL_COMMAND {}\nYES_FLAG {}\n", package_manager, update_command, install_command, yes_flag);
-        fs::write("/etc/atomic-update.conf", config_contents).expect("Unable to write to /etc/atomic-update.conf");
+    if !package_manager.is_empty() {
+        let config_contents = format!(
+            "PACKAGE_MANAGER {}\nUPDATE_COMMAND {}\nINSTALL_COMMAND {}\nYES_FLAG {}\n",
+            package_manager, update_command, install_command, yes_flag
+        );
+        fs::write("/etc/atomic-update.conf", config_contents)
+            .expect("Unable to write to /etc/atomic-update.conf");
     }
 
     if let Some(subvol) = root_subvol {
-        let mut cfg_file = OpenOptions::new().append(true).open("/etc/atomic-update.conf").unwrap();
-        writeln!(cfg_file, "ROOT_SUBVOLUME {}", subvol.trim()).expect("Failed to write to config file");
+        let mut cfg_file = OpenOptions::new()
+            .append(true)
+            .open("/etc/atomic-update.conf")
+            .unwrap();
+        writeln!(cfg_file, "ROOT_SUBVOLUME {}", subvol.trim())
+            .expect("Failed to write to config file");
     }
 
     // TODO this should be a Result/Option in the future
     if !root_partition.is_empty() {
-        let mut cfg_file = OpenOptions::new().append(true).open("/etc/atomic-update.conf").unwrap();
-        writeln!(cfg_file, "ROOT_PARTITION {}", root_partition.trim()).expect("Failed to write to config file");
+        let mut cfg_file = OpenOptions::new()
+            .append(true)
+            .open("/etc/atomic-update.conf")
+            .unwrap();
+        writeln!(cfg_file, "ROOT_PARTITION {}", root_partition.trim())
+            .expect("Failed to write to config file");
     }
 }
 
@@ -96,7 +114,10 @@ pub fn read_config_file() -> Result<ConfigOpts, std::io::Error> {
     let config_file_path = Path::new("/etc/atomic-update.conf");
 
     if !config_file_path.exists() {
-        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "Could not find atomic update config file!");
+        let err = std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Could not find atomic update config file!",
+        );
         return Err(err);
     }
 
@@ -111,17 +132,17 @@ pub fn read_config_file() -> Result<ConfigOpts, std::io::Error> {
     let file_contents = read_to_string(config_file_path).unwrap();
     for line in file_contents.lines() {
         if line.starts_with("UPDATE_COMMAND") {
-            update_command = line.split(" ").last().unwrap();
+            update_command = line.split(' ').last().unwrap();
         } else if line.starts_with("PACKAGE_MANAGER") {
-            package_manager = line.split(" ").last().unwrap();
+            package_manager = line.split(' ').last().unwrap();
         } else if line.starts_with("INSTALL_COMMAND") {
-            install_command = line.split(" ").last().unwrap();
+            install_command = line.split(' ').last().unwrap();
         } else if line.starts_with("YES_FLAG") {
-            yes_flag = line.split(" ").last().unwrap();
+            yes_flag = line.split(' ').last().unwrap();
         } else if line.starts_with("ROOT_PARTITION") {
-            root_partition = line.split(" ").last().unwrap();
+            root_partition = line.split(' ').last().unwrap();
         } else if line.starts_with("ROOT_SUBVOLUME") {
-            root_subvolume = line.split(" ").last().unwrap();
+            root_subvolume = line.split(' ').last().unwrap();
         }
     }
 

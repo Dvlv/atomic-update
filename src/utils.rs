@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
 use std::path::Path;
-use std::process::{Command, exit, Stdio};
+use std::process::{exit, Command, Stdio};
 
 use crate::btrfs_handler::is_root_user;
 
@@ -20,13 +20,12 @@ pub fn run_command_and_stream_out(
 
     reader
         .lines()
-        .filter_map(|line| line.ok())
-        .filter(|line| line.find("usb").is_some())
+        .map_while(Result::ok)
+        .filter(|line| line.contains("usb"))
         .for_each(|line| println!("{}", line));
 
     Ok(())
 }
-
 
 pub fn run_command_and_stream_err(
     cmd_to_run: std::string::String,
@@ -44,8 +43,8 @@ pub fn run_command_and_stream_err(
 
     reader
         .lines()
-        .filter_map(|line| line.ok())
-        .filter(|line| line.find("usb").is_some())
+        .map_while(Result::ok)
+        .filter(|line| line.contains("usb"))
         .for_each(|line| println!("{}", line));
 
     Ok(())
@@ -61,7 +60,6 @@ pub fn run_command(
     }
 
     cmd.output()
-
 }
 
 pub fn get_command_output(
@@ -73,15 +71,15 @@ pub fn get_command_output(
     match output {
         Ok(o) => {
             let mut result = String::from("");
-            if &o.stdout.len() > &0 {
+            if !o.stdout.is_empty() {
                 result = result
-                    + &String::from_utf8_lossy(&o.stdout).to_owned().to_string()
+                    + String::from_utf8_lossy(&o.stdout).into_owned().as_ref()
                     + &String::from("\n");
             }
 
-            if &o.stderr.len() > &0 {
+            if !o.stderr.is_empty() {
                 result = result
-                    + &String::from_utf8_lossy(&o.stderr).to_owned().to_string()
+                    + String::from_utf8_lossy(&o.stderr).into_owned().as_ref()
                     + &String::from("\n");
             }
 
@@ -94,7 +92,8 @@ pub fn get_command_output(
 pub fn make_dir_if_not_exists(path: &Path) {
     if !path.exists() {
         println!("Creating Snapshots Directory: {:?}", path);
-        fs::create_dir_all(path).expect(&*format!("Could not create {:?} directory!", path.to_str()));
+        fs::create_dir_all(path)
+            .expect(&format!("Could not create {:?} directory!", path.to_str()));
     }
 }
 
@@ -104,9 +103,10 @@ pub fn try_detect_distro() -> String {
         exit(1);
     }
 
-    let os_release_content = get_command_output(String::from("cat"), Some(&*vec!["/etc/os-release"]));
+    let os_release_content =
+        get_command_output(String::from("cat"), Some(&*vec!["/etc/os-release"]));
     let mut os_name = "unknown";
-    for line in os_release_content.split("\n") {
+    for line in os_release_content.split('\n') {
         if line.starts_with("NAME=\"") {
             let mut line_chars = line.chars();
             line_chars.next_back();
@@ -115,7 +115,14 @@ pub fn try_detect_distro() -> String {
         }
     }
 
-    os_name.to_lowercase().replace("linux", "").trim().split(" ").next().unwrap().to_string()
+    os_name
+        .to_lowercase()
+        .replace("linux", "")
+        .trim()
+        .split(' ')
+        .next()
+        .unwrap()
+        .to_string()
 }
 
 pub fn get_root_partition_device() -> String {
@@ -129,9 +136,12 @@ pub fn get_root_partition_device() -> String {
         return String::from("");
     }
 
-    for line in df_out.split("\n") {
+    for line in df_out.split('\n') {
         let line_lower = line.to_ascii_lowercase();
-        let df_out_parts = line_lower.split(" ").filter(|p| !p.is_empty()).collect::<Vec<_>>();
+        let df_out_parts = line_lower
+            .split(' ')
+            .filter(|p| !p.is_empty())
+            .collect::<Vec<_>>();
         if df_out_parts.len() < 3 {
             continue;
         }

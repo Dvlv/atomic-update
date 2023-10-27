@@ -7,26 +7,23 @@ use crate::utils::*;
 
 pub fn is_root_user() -> bool {
     let uid = get_command_output(String::from("id"), Some(&*vec!["-u"]));
-    let is_root = if uid.trim() == "0" {
-        true
-    } else {
-        false
-    };
-
-    is_root
+    uid.trim() == "0"
 }
 
 pub fn get_root_subvolume_name() -> Option<String> {
-    let subvols = get_command_output(String::from("btrfs"), Some(&*vec!["subvolume", "list", "/"]));
+    let subvols = get_command_output(
+        String::from("btrfs"),
+        Some(&*vec!["subvolume", "list", "/"]),
+    );
 
-    let subvol_output_lines = subvols.split("\n");
+    let subvol_output_lines = subvols.split('\n');
 
     // root = Fedora
     // @ = Opensuse, Mint
-    let probable_root_names = vec!["root", "@"];
+    let probable_root_names = ["root", "@"];
 
     for line in subvol_output_lines {
-        let subvol_path = line.split(" ").last().unwrap();
+        let subvol_path = line.split(' ').last().unwrap();
         if probable_root_names.contains(&subvol_path) {
             return Some(subvol_path.to_string());
         }
@@ -48,10 +45,18 @@ pub fn create_snapshots_dir() {
 }
 
 pub fn create_root_snapshot(snapshot_target_dir: &Path) -> std::io::Result<()> {
-    let success = run_command(String::from("btrfs"), Some(&*vec!["subvolume", "snapshot", "/", snapshot_target_dir.to_str().unwrap()]));
+    let success = run_command(
+        String::from("btrfs"),
+        Some(&*vec![
+            "subvolume",
+            "snapshot",
+            "/",
+            snapshot_target_dir.to_str().unwrap(),
+        ]),
+    );
 
     match success {
-        Ok(output) => {
+        Ok(_output) => {
             println!("Snapshot created at {:?}", snapshot_target_dir.as_os_str());
             Ok(())
         }
@@ -62,12 +67,19 @@ pub fn create_root_snapshot(snapshot_target_dir: &Path) -> std::io::Result<()> {
     }
 }
 
-pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: String, args: Option<&[&str]>) -> std::io::Result<()> {
+pub fn run_command_in_snapshot_chroot(
+    snapshot_target_dir: &Path,
+    command: String,
+    args: Option<&[&str]>,
+) -> std::io::Result<()> {
     // Chroots dont have /etc/resolv.conf, so network doesnt work
     // copy from host into snapshot
     let resolv_loc = format!("{}/etc/resolv.conf", snapshot_target_dir.to_str().unwrap());
     run_command_and_stream_err(String::from("rm"), vec![resolv_loc.as_str()].as_slice());
-    run_command_and_stream_err(String::from("cp"), vec!["/etc/resolv.conf", resolv_loc.as_str()].as_slice());
+    run_command_and_stream_err(
+        String::from("cp"),
+        vec!["/etc/resolv.conf", resolv_loc.as_str()].as_slice(),
+    );
 
     let mut chroot_plus_command = vec![snapshot_target_dir.to_str().unwrap(), command.as_str()];
     if let Some(a) = args {
@@ -75,6 +87,37 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
             chroot_plus_command.push(*s);
         }
     };
+
+    let mount_proc_command = format!("mount --bind /proc {}/proc", snapshot_target_dir.to_str().unwrap());
+    let mount_proc_command_parts = mount_proc_command.split(' ').collect::<Vec<_>>();
+
+    let mount_sys_command = format!("mount --bind /sys {}/sys", snapshot_target_dir.to_str().unwrap());
+    let mount_sys_command_parts = mount_sys_command.split(' ').collect::<Vec<_>>();
+
+    let mount_dev_command = format!("mount --bind /dev {}/dev", snapshot_target_dir.to_str().unwrap());
+    let mount_dev_command_parts = mount_dev_command.split(' ').collect::<Vec<_>>();
+
+    let was_mounted = run_command(mount_proc_command_parts[0].to_string(), Some(mount_proc_command_parts[1..].iter().as_slice()));
+
+    if let Err(e) = was_mounted {
+        eprintln!("Failed mounting proc!");
+        exit(1);
+    }
+
+    let was_mounted = run_command(mount_sys_command_parts[0].to_string(), Some(mount_sys_command_parts[1..].iter().as_slice()));
+
+    if let Err(e) = was_mounted {
+        eprintln!("Failed mounting sys!");
+        exit(1);
+    }
+
+    let was_mounted = run_command(mount_dev_command_parts[0].to_string(), Some(mount_dev_command_parts[1..].iter().as_slice()));
+
+    if let Err(e) = was_mounted {
+        eprintln!("Failed mounting dev!");
+        exit(1);
+    }
+
     run_command_and_stream_err(String::from("chroot"), chroot_plus_command.as_slice());
 
     Ok(())
@@ -83,10 +126,6 @@ pub fn run_command_in_snapshot_chroot(snapshot_target_dir: &Path, command: Strin
 pub fn swap_snapshot_to_root(snapshot_path: &Path) {
     let root_subvol_name = get_root_subvolume_name().expect("Could not determine root subvolume name - expecting 'root' or '@'");
     let root_partition_device = get_root_partition_device();
-    if root_partition_device.as_str() == "" {
-        eprintln!("Failed to detect root partition device, please set it manually in /etc/atomic-update.conf");
-        exit(1);
-    }
 
     let root_subvol_path = format!("/mnt/{}", root_subvol_name);
     let root_subvol_path = Path::new(root_subvol_path.as_str());
@@ -100,7 +139,8 @@ pub fn swap_snapshot_to_root(snapshot_path: &Path) {
     let new_rollback_path = Path::new(new_rollback_path.as_str());
 
     let mount_command = format!("mount -t btrfs -o subvolid=5 {} /mnt", root_partition_device);
-    let mount_command_parts = mount_command.split(" ").collect::<Vec<_>>();
+    let mount_command_parts = mount_command.split(' ').collect::<Vec<_>>();
+
 
     println!("Swapping {} to new root, moving current root to /.au-snapshots/rollback", snapshot_path.to_str().unwrap());
 
@@ -111,18 +151,20 @@ pub fn swap_snapshot_to_root(snapshot_path: &Path) {
         exit(1);
     }
 
-    fs::rename(root_subvol_path, rollback_subvol_path).expect("Failed to move subvolume at step 1");  // mv /mnt/root /mnt/rollback
-    fs::rename(new_path_to_new_root, root_subvol_path).expect("Failed to move subvolume at step 2");  // mv /mnt/rollback/.au-snapshots/1 /mnt/root
-    fs::rename(rollback_subvol_path, new_rollback_path).expect("Failed to move subvolume at step 3");  // mv /mnt/rollback /mnt/root/.au-snapshots/rollback
+    fs::rename(root_subvol_path, rollback_subvol_path).expect("Failed to move subvolume at step 1"); // mv /mnt/root /mnt/rollback
+    fs::rename(new_path_to_new_root, root_subvol_path).expect("Failed to move subvolume at step 2"); // mv /mnt/rollback/.au-snapshots/1 /mnt/root
+    fs::rename(rollback_subvol_path, new_rollback_path)
+        .expect("Failed to move subvolume at step 3"); // mv /mnt/rollback /mnt/root/.au-snapshots/rollback
 
     let was_unmounted = run_command(String::from("umount"), Some(vec!["/mnt"].as_slice()));
     if let Err(e) = was_unmounted {
-        eprintln!("Failed unmounting /mnt, please do this manually");
+        eprintln!("Failed unmounting /mnt, please do this manually: {}", e);
     }
 }
 
 pub fn swap_rollback_to_root() {
-    let root_subvol_name = get_root_subvolume_name().expect("Could not determine root subvolume name - expecting 'root' or '@'");
+    let root_subvol_name = get_root_subvolume_name()
+        .expect("Could not determine root subvolume name - expecting 'root' or '@'");
     let root_partition_device = get_root_partition_device();
     if root_partition_device.as_str() == "" {
         eprintln!("Failed to detect root partition device, please set it manually in /etc/atomic-update.conf");
@@ -137,16 +179,22 @@ pub fn swap_rollback_to_root() {
 
     let new_root_temp_subvol_path = Path::new("/mnt/new-root");
 
-    let new_root_temp_subvol_rollback_path = format!("/mnt/new-root/.au-snapshots/rollback");
+    let new_root_temp_subvol_rollback_path = String::from("/mnt/new-root/.au-snapshots/rollback");
     let new_root_temp_subvol_rollback_path = Path::new(new_root_temp_subvol_rollback_path.as_str());
 
     println!("Mounting {} on /mnt", root_partition_device);
-    let mount_command = format!("mount -t btrfs -o subvolid=5 {} /mnt", root_partition_device);
-    let mount_command_parts = mount_command.split(" ").collect::<Vec<_>>();
-    let was_mounted = run_command(mount_command_parts[0].to_string(), Some(mount_command_parts[1..].iter().as_slice()));
+    let mount_command = format!(
+        "mount -t btrfs -o subvolid=5 {} /mnt",
+        root_partition_device
+    );
+    let mount_command_parts = mount_command.split(' ').collect::<Vec<_>>();
+    let was_mounted = run_command(
+        mount_command_parts[0].to_string(),
+        Some(mount_command_parts[1..].iter().as_slice()),
+    );
 
     if let Err(e) = was_mounted {
-        eprintln!("Failed mounting {} to /mnt", root_partition_device);
+        eprintln!("Failed mounting {} to /mnt: {}", root_partition_device, e);
         exit(1);
     }
 
@@ -157,7 +205,8 @@ pub fn swap_rollback_to_root() {
 
     println!("Swapping rollback to new root, moving current root to /.au-snapshots/rollback");
 
-    fs::rename(rollback_subvol_path, new_root_temp_subvol_path).expect("Failed to move subvolume at step 1");  // mv /mnt/root/.au-snapshots/rollback /mnt/new-root
+    fs::rename(rollback_subvol_path, new_root_temp_subvol_path)
+        .expect("Failed to move subvolume at step 1"); // mv /mnt/root/.au-snapshots/rollback /mnt/new-root
 
     if new_root_temp_subvol_rollback_path.exists() {
         println!("Removing {:?}", new_root_temp_subvol_rollback_path.to_str());
@@ -166,15 +215,19 @@ pub fn swap_rollback_to_root() {
         }
     }
 
-    fs::rename(root_subvol_path, new_root_temp_subvol_rollback_path).expect("Failed to move subvolume at step 2");  // mv /mnt/root /mnt/new-root/.au-snapshots/rollback
-    fs::rename(new_root_temp_subvol_path, root_subvol_path).expect("Failed to move subvolume at step 3");  // mv /mnt/new-root /mnt/root
+    fs::rename(root_subvol_path, new_root_temp_subvol_rollback_path)
+        .expect("Failed to move subvolume at step 2"); // mv /mnt/root /mnt/new-root/.au-snapshots/rollback
+    fs::rename(new_root_temp_subvol_path, root_subvol_path)
+        .expect("Failed to move subvolume at step 3"); // mv /mnt/new-root /mnt/root
 
     let was_unmounted = run_command(String::from("umount"), Some(vec!["/mnt"].as_slice()));
     if let Err(e) = was_unmounted {
-        eprintln!("Failed unmounting /mnt, please do this manually with 'sudo umount /mnt'");
+        eprintln!(
+            "Failed unmounting /mnt, please do this manually with 'sudo umount /mnt': {}",
+            e
+        );
     }
 }
-
 
 pub fn get_next_snapshot_path() -> Result<String, std::io::Error> {
     let snapshots_path = Path::new("/.au-snapshots");
@@ -189,13 +242,13 @@ pub fn get_next_snapshot_path() -> Result<String, std::io::Error> {
     entries.sort();
     println!("{:?}", entries);
 
-    if entries.len() < 1 {
+    if entries.is_empty() {
         return Ok(String::from("/.au-snapshots/1"));
     }
 
     for entry in entries.iter().rev() {
         let entry_str = entry.to_str().unwrap();
-        let entry_folder = entry_str.split("/").last().unwrap();
+        let entry_folder = entry_str.split('/').last().unwrap();
         if let Ok(num) = entry_folder.parse::<i32>() {
             let next_dir = format!("/.au-snapshots/{}", num + 1);
             if !Path::new(&next_dir).exists() {

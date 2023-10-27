@@ -1,7 +1,7 @@
-use std::{env, io, process};
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
+use std::{env, io, process};
 
 use btrfs_handler::*;
 
@@ -32,7 +32,7 @@ fn init() {
     io::stdout().flush().unwrap();
 
     let mut yes_input = String::new();
-    while true {
+    loop {
         match io::stdin().read_line(&mut yes_input) {
             Ok(_n) => {
                 yes_input = yes_input.trim().to_string();
@@ -71,7 +71,11 @@ fn update() {
         exit(1);
     }
 
-    match run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(vec![update_command.as_str(), yes_flag.as_str()].as_slice())) {
+    match run_command_in_snapshot_chroot(
+        next_snapshot_path,
+        package_manager,
+        Some(vec![update_command.as_str(), yes_flag.as_str()].as_slice()),
+    ) {
         Ok(()) => {
             println!("Success!");
             swap_snapshot_to_root(next_snapshot_path);
@@ -82,7 +86,7 @@ fn update() {
     }
 }
 
-fn install(cmd_args: &mut Vec<String>) {
+fn install(cmd_args: &mut [String]) {
     let next_snapshot_location = get_next_snapshot_path().expect("Could not parse snapshot dir");
     let next_snapshot_path = Path::new(next_snapshot_location.as_str());
     create_root_snapshot(next_snapshot_path).expect("Could not create snapshot");
@@ -110,7 +114,11 @@ fn install(cmd_args: &mut Vec<String>) {
 
     println!("{:?}", install_cmd);
 
-    match run_command_in_snapshot_chroot(next_snapshot_path, package_manager, Some(install_cmd.as_slice())) {
+    match run_command_in_snapshot_chroot(
+        next_snapshot_path,
+        package_manager,
+        Some(install_cmd.as_slice()),
+    ) {
         Ok(()) => {
             println!("Success!");
             swap_snapshot_to_root(next_snapshot_path);
@@ -141,7 +149,11 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
     } else {
         let args_to_run: Vec<&str> = cmd_args[1..].iter().map(|s| s.as_str()).collect();
 
-        match run_command_in_snapshot_chroot(next_snapshot_path, cmd_to_run.clone(), Some(&args_to_run)) {
+        match run_command_in_snapshot_chroot(
+            next_snapshot_path,
+            cmd_to_run.clone(),
+            Some(&args_to_run),
+        ) {
             Ok(()) => {
                 println!("Worked!");
                 swap_snapshot_to_root(next_snapshot_path);
@@ -155,7 +167,10 @@ fn exec_cmd(cmd_args: &mut Vec<String>) {
 }
 
 fn rollback() {
-    println!("Swapping rollback and {}", get_root_subvolume_name().unwrap());
+    println!(
+        "Swapping rollback and {}",
+        get_root_subvolume_name().unwrap()
+    );
     swap_rollback_to_root();
     println!("Success, changes will take effect at next reboot!")
 }
@@ -172,12 +187,8 @@ fn main() {
     }
 
     match args[1].as_str() {
-        "init" => {
-            init()
-        }
-        "update" => {
-            update()
-        }
+        "init" => init(),
+        "update" => update(),
         "exec" => {
             if args.len() < 3 {
                 println!("Not enough args passed to exec! \n");
